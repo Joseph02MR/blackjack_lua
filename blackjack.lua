@@ -7,6 +7,7 @@
 -- script:  lua
 
 function BOOT()
+	t=0
 	drawn=false
 --	x=80
 --	y=80
@@ -16,7 +17,7 @@ function BOOT()
 
 	xb=160 --coordinates for initial button
 	yb=110
-	
+
 	pcards={} --play cards
 	deck_ptr=1
 	for i=1,4 do
@@ -25,20 +26,22 @@ function BOOT()
 			deck_ptr=deck_ptr+1
 		end
 	end
+	played={}
+	played_ptr=0
+
 	dealer={}
+	player={}
+
 	dheight=5 --dealer card height
-	players={}
-	init_players(1)
 	pheight=60 --players card heigth
+
+	--TIC AUX
+	dealt=0
+	dcnt=0
+	show=false
 end
 
-function init_players(num)
-	local aux=1
-	while(aux<=num)do
-		players[aux]={}
-		aux=aux+1
-	end	
-end
+
 
 function shuffle(darr,dsize)
 	for i=dsize,1,-1 do
@@ -47,7 +50,7 @@ function shuffle(darr,dsize)
 		darr[i]=darr[j]
 		darr[j]=tmp
 	end
-end 
+end
 
 function create_deck(deck_num)
 	local aux={}
@@ -66,9 +69,9 @@ end
 
 function sel_tile(x,y)
 	if x==0 and y==0 then return 0;
-		elseif x==0 and y==3 then return 1;
-		elseif x==2 and y==0 then return 2;
-		elseif x==2 and y==3 then return 3;
+		elseif x==0 and y==3 then return 1
+		elseif x==2 and y==0 then return 2
+		elseif x==2 and y==3 then return 3
 		else return 4;
 	end
 end
@@ -78,7 +81,7 @@ function draw_card(deck,card,x,y)
 		for j=0,2,1 do
 			spr(sel_tile(j,i),(sw*j)+x,(sw*i)+y,0,1,0,0,1,1)
 		end
-	end	
+	end
 
  local c=31+deck[card][1]
  local n=47+deck[card][2]
@@ -93,36 +96,50 @@ function draw_back(x,y)
 			spr(16+aux,(sw*j)+x,(sw*i)+y,0,1,0,0,1,1)
 			aux=aux+1
 		end
-	end	
+	end
+end
+
+function update_played(card,owner)
+	played_ptr=played_ptr+1
+	played[played_ptr] = {card,owner}
 end
 
 function first_deal(deck)
 	local card=1
-	
 	for cn=1,2 do
-		for i=1,#players do
-			players[i][cn]=deck[card]
-			deck[card]=0
-			card=card+1
-		end
+		player[cn]=deck[card]
+		update_played(player[cn],1)
+		deck[card]=0
+		card=card+1
 		dealer[cn]=deck[card]
+		update_played(dealer[cn],0)
 		deck[card]=0
 		card=card+1
 	end
-	
+
 	return card
 end
 
-function draw_first_deal()
-	for cn=1,2 do
+function draw(cards, show)
+	--[[for cn=1,2 do
 		for i=1,#players do
-			draw_card(pcards, players[i][cn],80+(i-1)*css,pheight)
+			draw_card(pcards, players[i][cn],80+(cn-1)*css,pheight)
 		end
 		draw_card(pcards, dealer[cn],80+(cn-1)*cs,dheight)
 	end
+	--]]
+	for i=1, cards do
+		if i==4 and not show then
+			draw_back(80+3*css,dheight)
+		else
+			if played[i][2]~=0 then draw_card(pcards, played[i][1],80+(i-1)*css,pheight)
+			else draw_card(pcards, played[i][1],80+(i-1)*css,dheight)
+			end
+		end
+	end
 end
 
-function draw_buttons()
+function draw_buttons(double,split)
 	for i=0, 3 do
 		spr(5+i,xb-(i*34),yb,0,2,0,0,1,1)
 		line(xb+2-(i*34),yb-2,xb+13-(i*34),yb-2,8)
@@ -139,15 +156,14 @@ function draw_selected()
 		if(xb-(i*34) < mx and mx < xb-(i*34)+16) then x_in=true
 			if(yb < my and my < yb+16) then
 				y_in=true
-				b=i 
+				b=i
 			end
 		end
 	end
-	if y_in and x_in then 
+	if y_in and x_in then
 		spr(12,xb-(b*34)-2,yb-4,0,2,0,0,2,2)
 		if ml then button_click(b) end
 	end
-	
 end
 
 function button_click(b)
@@ -172,10 +188,10 @@ end
 
 function stand()
 	print("stand",0,130)
+	show=true
 end
 
 function TIC()
-	dcnt=0
 	cls(6)
 	if not drawn then
 	deck=create_deck(2)
@@ -183,13 +199,17 @@ function TIC()
 	drawn = true
 	end
 
+	if t%30==0 and dealt<4 then
+		dealt=dealt+1
+	end
+	draw(dealt,show)
 
-	draw_first_deal()
 	draw_selected()
 	draw_buttons()
-	button_click()
-	
 
+	t=t+1
+	print(dealt,230,0)
+	--debug
 	--[[
 	draw_card(pcards,deck[1],x,y)
 	line(x+17,y,x+17,y+31,13)
@@ -198,7 +218,7 @@ function TIC()
 	draw_back(x,y-50)
 	draw_back(x+cs,y-50)
 	--]]
-	
+
 --[[ debug-check shuffle	
 	aux=0
 	z=0
@@ -209,10 +229,12 @@ function TIC()
 	end
 	--]]
 	local aux2=0
-	for i=1,#players[1] do
-		print(pcards[players[1][i]][1].. " ".. pcards[players[1][i]][2],0,aux2)
+	for i=1,#player do
+		print(pcards[player[i]][1].. " ".. pcards[player[i]][2],0,aux2)
 		aux2=aux2+6
 	end
+	print("dealer",0,aux2)
+	aux2=aux2+6
 	for i=1,#dealer do
 		print(pcards[dealer[i]][1].." "..pcards[dealer[i]][2],0,aux2)
 		aux2=aux2+6
@@ -237,6 +259,8 @@ end
 -- 006:8aaaaaa88a888aa88a8aa8a88a8aa8a88a8aa8a88a888aa88aaaaaa808888880
 -- 007:8488444884844448844844488488884884448848844484488444444808888880
 -- 008:8222222882888828828222288288882882222828828888288222222808888880
+-- 009:8999999889888998898998988989989889899898898889988999999808888880
+-- 010:8b88bbb88b8bbbb88bb8bbb88b8888b88bbb88b88bbb8bb88bbbbbb808888880
 -- 012:00cccccc0c000000c0000000c0000000c0000000c0000000c0000000c0000000
 -- 013:00000000c00000000c0000000c0000000c0000000c0000000c0000000c000000
 -- 016:0ccccccccc444444c4322222c4234444c4243222c4242344c4242432c4242423
@@ -329,6 +353,6 @@ end
 -- </TRACKS>
 
 -- <PALETTE>
--- 000:1a1c2c650418b13e53ef7d57ffcd75a7f07038b7642571790000003b5dc941a6f673eff7f4f4f494b0c2566c86333c57
+-- 000:1a1c2c650418b13e53ef7d57ffcd75a7f07038b76425717900000028408941a6f6ae894cf4f4f494b0c2566c86333c57
 -- </PALETTE>
 
